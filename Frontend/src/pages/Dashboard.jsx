@@ -1,14 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Upload, CheckCircle, Clock, AlertTriangle, XCircle, FileText, Video, ImageIcon, Settings, User, Menu } from 'lucide-react';
-import censorProLogo from '../assets/CensorProLogo.png'
+import { Upload, CheckCircle, Clock, AlertTriangle, XCircle, FileText, ImageIcon } from 'lucide-react';
+import Navbar from '../components/Navbar';
 
 // Main Dashboard component containing all sub-components and logic
 const Dashboard = () => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [moderationResults, setModerationResults] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [lastModerationResult, setLastModerationResult] = useState(null);
   const [moderationType, setModerationType] = useState('image'); // 'image' or 'text'
   const [textToModerate, setTextToModerate] = useState('');
   const [aiModerationResult, setAiModerationResult] = useState(null);
@@ -86,35 +84,15 @@ const Dashboard = () => {
     return () => clearInterval(intervalId);
   }, []);
 
-  // Capture token from Google redirect and store in localStorage
-  useEffect(() => {
-    const hashParams = new URLSearchParams(window.location.hash.substring(1)); // if using #?token=
-    const searchParams = new URLSearchParams(window.location.search); // if using ?token=
-
-    const token = hashParams.get('token') || searchParams.get('token');
-    if (token) {
-      localStorage.setItem('token', token);
-      // Clean up the URL so token isn't visible
-      const cleanUrl = window.location.origin + window.location.pathname;
-      window.history.replaceState({}, document.title, cleanUrl);
-      setUserName(() => {
-        try {
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          return payload.name || payload.email || 'User';
-        } catch {
-          return 'User';
-        }
-      });
-    }
-  }, []);
-
-
-
-  const getModerationSummary = (results) => {
+  const getImageModerationSummary = (results) => {
     if (!results) return null;
 
     if (results.error) {
-      return `Error: ${results.error}`;
+      return {
+        summary: `Error: ${results.error}`,
+        isInappropriate: false,
+        reasons: [],
+      };
     }
 
     const inappropriateCategories = [];
@@ -126,66 +104,66 @@ const Dashboard = () => {
       tobacco: 0.5,
       violence: 0.5,
       offensive: 0.5,
-      nudity: 0.5, // Using partial or raw for nudity
+      nudity: 0.5,
       gore: 0.5,
     };
 
-    // Handle Sightengine specific output structure
     if (results.status === 'success') {
-      // Nudity
-      if (results.nudity && (results.nudity.raw > thresholds.nudity || results.nudity.partial > thresholds.nudity)) {
-        inappropriateCategories.push(`Nudity (raw: ${results.nudity.raw?.toFixed(2) || '0'}, partial: ${results.nudity.partial?.toFixed(2) || '0'})`);
+      if (
+        results.nudity &&
+        (results.nudity.raw > thresholds.nudity || results.nudity.partial > thresholds.nudity)
+      ) {
+        inappropriateCategories.push(
+          `Nudity (raw: ${results.nudity.raw?.toFixed(2) || '0'}, partial: ${
+            results.nudity.partial?.toFixed(2) || '0'
+          })`
+        );
       }
 
-      // Weapon
       if (results.weapon && results.weapon > thresholds.weapon) {
         inappropriateCategories.push(`Weapon (${results.weapon.toFixed(2)})`);
       }
 
-      // Alcohol
-      if (results.alcohol && results.alcohol > thresholds.alcohol) { // Corrected: direct check for alcohol probability
+      if (results.alcohol && results.alcohol > thresholds.alcohol) {
         inappropriateCategories.push(`Alcohol (${results.alcohol.toFixed(2)})`);
       }
 
-      // Recreational Drug
       if (results.recreational_drugs && results.recreational_drugs > thresholds.recreational_drug) {
-        inappropriateCategories.push(`Recreational Drug (${results.recreational_drugs.toFixed(2)})`);
+        inappropriateCategories.push(
+          `Recreational Drug (${results.recreational_drugs.toFixed(2)})`
+        );
       }
 
-      // Medical
       if (results.medical_drugs && results.medical_drugs > thresholds.medical) {
         inappropriateCategories.push(`Medical (${results.medical_drugs.toFixed(2)})`);
       }
 
-      // Tobacco
       if (results.tobacco && results.tobacco.prob > thresholds.tobacco) {
         inappropriateCategories.push(`Tobacco (${results.tobacco.prob.toFixed(2)})`);
       }
 
-      // Violence
       if (results.violence && results.violence.prob > thresholds.violence) {
         inappropriateCategories.push(`Violence (${results.violence.prob.toFixed(2)})`);
       }
 
-      // Offensive
       if (results.offensive && results.offensive.prob > thresholds.offensive) {
         inappropriateCategories.push(`Offensive (${results.offensive.prob.toFixed(2)})`);
       }
 
-      // Gore
       if (results.gore && results.gore.prob > thresholds.gore) {
         inappropriateCategories.push(`Gore (${results.gore.prob.toFixed(2)})`);
       }
-
-    } else if (results.error) {
-      return `Error from Sightengine: ${results.error.message || 'Unknown error'}`;
     }
 
-    if (inappropriateCategories.length > 0) {
-      return `⚠️ Inappropriate content detected! Reasons: ${inappropriateCategories.join(', ')}`;
-    } else {
-      return '✅ Content is safe.';
-    }
+    const isInappropriate = inappropriateCategories.length > 0;
+
+    return {
+      summary: isInappropriate
+        ? `Content may be unsafe. Reasons: ${inappropriateCategories.join(', ')}`
+        : 'Content appears safe under current thresholds.',
+      isInappropriate,
+      reasons: inappropriateCategories,
+    };
   };
 
   // Helper function to process text moderation results from Gradio
@@ -233,34 +211,6 @@ const Dashboard = () => {
     }
   };
 
-  const moderateFile = (fileId, newStatus) => {
-    setRecentActivity((prevActivity) =>
-      prevActivity.map((activity) =>
-        activity.id === fileId ? { ...activity, status: newStatus } : activity
-      )
-    );
-
-    setStats((prevStats) => {
-      const updatedStats = { ...prevStats };
-      // Decrement previous status count
-      const oldActivity = recentActivity.find(act => act.id === fileId);
-      if (oldActivity) {
-        if (oldActivity.status === "Pending") updatedStats.pending--;
-        else if (oldActivity.status === "Approved") updatedStats.approved--;
-        else if (oldActivity.status === "Rejected") updatedStats.rejected--;
-        else if (oldActivity.status === "Under Review") updatedStats.underReview--;
-      }
-
-      // Increment new status count
-      if (newStatus === "Approved") updatedStats.approved++;
-      else if (newStatus === "Rejected") updatedStats.rejected++;
-      else if (newStatus === "Under Review") updatedStats.underReview++;
-      else if (newStatus === "Pending") updatedStats.pending++; // Should not happen in moderation, but for completeness
-
-      return updatedStats;
-    });
-  };
-
   const handleAIModeration = async () => {
     if (moderationType === 'image' && !selectedImage) return;
     if (moderationType === 'text' && !textToModerate.trim()) return;
@@ -272,9 +222,8 @@ const Dashboard = () => {
     try {
       if (moderationType === 'image') {
         const data = await moderateImageWithSightengine(selectedImage);
-        setAiModerationResult(data);
-        setModerationResults(data); // Set moderationResults for image moderation
-        setLastModerationResult(getModerationSummary(data)); // Set lastModerationResult for image moderation
+        setModerationResults(data); // Image moderation raw results
+        setAiModerationResult(null);
       } else {
         const token = getAuthToken();
         const res = await fetch(`${API_BASE_URL}/content/moderate/text`, {
@@ -297,7 +246,6 @@ const Dashboard = () => {
         const processedData = processTextModerationResults(rawData.data[0]);
         setAiModerationResult(processedData);
         setModerationResults(processedData);
-        setLastModerationResult(processedData.summary);
       }
 
       // Add to recent activity
@@ -394,118 +342,77 @@ const Dashboard = () => {
     }
   };
 
-  // Header component for the top navigation bar, defined inside Dashboard
-  const Header = () => (
-    <header className="bg-white shadow-md py-4 px-6 flex justify-between items-center rounded-b-xl">
-      <div className="flex items-center gap-2">
-        <img src={censorProLogo} alt="CensorPro Logo" className="w-10 h-10" />
-        <span className="font-bold text-xl text-blue-600">CensorPro</span>
-      </div>
-      <nav className="hidden md:flex gap-6 text-blue-700 font-medium">
-        <Link to="/" className="hover:underline">Home</Link>
-        <a href="#" className="hover:underline">Features</a>
-        <a href="#" className="hover:underline">Docs</a>
-        <a href="#" className="hover:underline">Contact</a>
-      </nav>
-      {localStorage.getItem('token') ? (
-        <button
-          onClick={async () => {
-            try { localStorage.removeItem('token'); } catch { }
-            try { await fetch(`${API_BASE_URL}/auth/logout`, { method: 'POST' }); } catch { }
-            window.location.href = '/';
-          }}
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 cursor-pointer"
-        >
-          Sign Out
-        </button>
-      ) : (
-        <a
-          href="/login"
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 cursor-pointer"
-        >
-          Sign In
-        </a>
-      )}
-      <button className="md:hidden">
-        <Menu className="h-6 w-6 text-blue-700" />
-      </button>
-    </header>
-  );
 
   // A reusable card component for the statistics section, defined inside Dashboard
   const StatCard = ({ title, value, change, icon: Icon, iconColor, statusColor }) => (
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100 flex-1 min-w-[150px] md:min-w-[180px]">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-medium text-blue-600">{title}</h3>
+    <div className="bg-slate-900/70 p-5 rounded-2xl shadow-sm border border-slate-800 flex-1 min-w-[150px] md:min-w-[180px]">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-xs font-medium uppercase tracking-wide text-slate-400">{title}</h3>
         <Icon className={`h-5 w-5 ${iconColor}`} />
       </div>
-      <div className="flex items-end justify-between">
-        <div>
-          <div className="text-3xl font-bold text-blue-900 mb-1">{value}</div>
-          <span className={`text-sm font-medium ${statusColor}`}>{change}</span>
-        </div>
+      <div>
+        <div className="text-3xl font-semibold text-slate-50 mb-1">{value}</div>
+        <span className={`text-xs font-medium ${statusColor}`}>{change}</span>
       </div>
     </div>
   );
-
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-100 to-blue-200 text-blue-900 font-sans">
-      <style>
-        {`
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-          body {
-            font-family: 'Inter', sans-serif;
-          }
-        `}
-      </style>
-      <Header />
+    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-50 font-sans">
+      <Navbar />
       <main className="container mx-auto px-4 py-8 flex-grow">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-blue-900">Welcome back, <span className="text-blue-600">{userName || 'User'}</span></h1>
-          <p className="text-blue-900 mt-1">Upload and manage your content with AI-powered moderation</p>
+        <div className="mb-8 flex flex-col gap-2">
+          <p className="text-xs font-semibold tracking-[0.2em] text-blue-400 uppercase">
+            Moderation console
+          </p>
+          <h1 className="text-2xl md:text-3xl font-semibold text-slate-50">
+            Welcome back, <span className="text-blue-400">{userName || 'Creator'}</span>
+          </h1>
+          <p className="text-sm text-slate-300 max-w-xl">
+            Review new uploads, inspect AI signals, and ship safe content with human oversight.
+          </p>
         </div>
 
         {/* Stats Cards Section */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6 mb-8">
           <StatCard
-            title="Total Content"
+            title="Total content"
             value={stats.total}
             change="All time uploads"
             icon={FileText}
-            iconColor="text-blue-700"
-            statusColor="text-blue-700"
+            iconColor="text-blue-400"
+            statusColor="text-slate-400"
           />
           <StatCard
             title="Approved"
             value={stats.approved}
             change="Ready to publish"
             icon={CheckCircle}
-            iconColor="text-green-500"
-            statusColor="text-green-500"
+            iconColor="text-emerald-400"
+            statusColor="text-emerald-300"
           />
           <StatCard
             title="Pending"
             value={stats.pending}
-            change="Being processed"
+            change="In AI/queue"
             icon={Clock}
-            iconColor="text-yellow-500"
-            statusColor="text-yellow-500"
+            iconColor="text-amber-300"
+            statusColor="text-amber-300"
           />
           <StatCard
-            title="Under Review"
+            title="Under review"
             value={stats.underReview}
-            change="Awaiting admin review"
+            change="With experts"
             icon={AlertTriangle}
-            iconColor="text-orange-500"
-            statusColor="text-orange-500"
+            iconColor="text-orange-300"
+            statusColor="text-orange-300"
           />
           <StatCard
             title="Rejected"
             value={stats.rejected}
-            change="Did not pass review"
+            change="Did not pass checks"
             icon={XCircle}
-            iconColor="text-red-500"
-            statusColor="text-red-500"
+            iconColor="text-rose-400"
+            statusColor="text-rose-300"
           />
         </div>
 
@@ -514,12 +421,15 @@ const Dashboard = () => {
           {/* Left Column */}
           <div className="lg:col-span-2 space-y-6">
             {/* Upload Content Section */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100">
-              <h2 className="text-xl font-semibold mb-6">Content Moderation</h2>
+            <div className="bg-slate-900/70 p-6 rounded-2xl shadow-sm border border-slate-800">
+              <h2 className="text-lg font-semibold mb-2 text-slate-50">Content moderation workspace</h2>
+              <p className="text-xs text-slate-400 mb-4">
+                Choose a content type, let the AI score it, then escalate edge cases to experts.
+              </p>
 
               {/* Toggle for Image/Text Moderation */}
               <div className="flex items-center justify-center mb-6">
-                <span className="mr-3 text-blue-700 font-medium">Image Moderation</span>
+                <span className="mr-3 text-slate-200 text-sm font-medium">Image moderation</span>
                 <label htmlFor="toggle" className="flex items-center cursor-pointer">
                   <div className="relative">
                     <input
@@ -529,18 +439,18 @@ const Dashboard = () => {
                       checked={moderationType === 'text'}
                       onChange={() => setModerationType(moderationType === 'image' ? 'text' : 'image')}
                     />
-                    <div className="block bg-blue-300 w-14 h-8 rounded-full peer-checked:bg-blue-600"></div>
+                    <div className="block bg-slate-700 w-14 h-8 rounded-full peer-checked:bg-blue-500"></div>
                     <div className="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-all duration-300 ease-in-out peer-checked:translate-x-full"></div>
                   </div>
                 </label>
-                <span className="ml-3 text-blue-700 font-medium">Text Moderation</span>
+                <span className="ml-3 text-slate-200 text-sm font-medium">Text moderation</span>
               </div>
 
               {moderationType === 'image' ? (
-                <div className="border-2 border-dashed border-blue-200 rounded-xl p-6 sm:p-10 text-center text-blue-700">
-                  <Upload className="mx-auto h-12 w-12 text-blue-600 mb-4" />
-                  <p className="text-lg font-medium">Drop files here to moderate</p>
-                  <p className="text-sm mt-1 mb-4">Or click to select files from your computer</p>
+                <div className="border-2 border-dashed border-slate-700 rounded-xl p-6 sm:p-8 text-center text-slate-200 bg-slate-950/40">
+                  <Upload className="mx-auto h-10 w-10 text-blue-400 mb-4" />
+                  <p className="text-base font-medium">Drop an image here to moderate</p>
+                  <p className="text-xs mt-1 mb-4 text-slate-400">Or click to select a file from your computer</p>
                   <input
                     type="file"
                     accept="image/*"
@@ -550,108 +460,196 @@ const Dashboard = () => {
                   />
                   <label
                     htmlFor="image-upload"
-                    className="bg-blue-600 text-white font-medium px-6 py-3 rounded-lg shadow hover:bg-blue-700 transition-colors cursor-pointer inline-block"
+                    className="bg-blue-500 text-slate-950 font-semibold px-6 py-2 rounded-lg shadow hover:bg-blue-400 transition-colors cursor-pointer inline-block"
                   >
-                    Select Image
+                    Select image
                   </label>
-                  {selectedImage && <p className="mt-2 text-sm">Selected: {selectedImage.name}</p>}
+                  {selectedImage && (
+                    <p className="mt-2 text-xs text-slate-300">Selected: {selectedImage.name}</p>
+                  )}
 
-                  <div className="flex flex-col sm:flex-row gap-3 justify-center mt-4">
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center mt-5">
                     <button
                       onClick={handleAIModeration}
                       disabled={!selectedImage || loading}
-                      className="bg-green-600 text-white font-medium px-6 py-3 rounded-lg shadow hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="bg-emerald-500 text-slate-950 font-semibold px-6 py-2 rounded-lg shadow hover:bg-emerald-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {loading ? 'Working...' : "AI Moderation"}
+                      {loading ? 'Running AI...' : 'Run AI check'}
                     </button>
                     <button
                       onClick={handleExpertReview}
                       disabled={!selectedImage || loading}
-                      className="bg-purple-600 text-white font-medium px-6 py-3 rounded-lg shadow hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="bg-purple-500 text-white font-semibold px-6 py-2 rounded-lg shadow hover:bg-purple-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {loading ? 'Submitting...' : "Expert's Review"}
+                      {loading ? 'Submitting...' : "Send to experts"}
                     </button>
                   </div>
 
-                  <p className="text-xs mt-4">Only one content type is allowed at a time.</p>
+                  <p className="text-[11px] mt-4 text-slate-500">
+                    Only one content type is allowed at a time.
+                  </p>
                 </div>
               ) : (
-                <div className="border-2 border-dashed border-blue-200 rounded-xl p-6 sm:p-8 text-center text-blue-700">
-                  <FileText className="mx-auto h-12 w-12 text-blue-600 mb-4" />
-                  <p className="text-lg font-medium mb-4">Enter text to moderate</p>
+                <div className="border-2 border-dashed border-slate-700 rounded-xl p-6 sm:p-8 text-left text-slate-200 bg-slate-950/40">
+                  <div className="flex items-center gap-3 mb-4">
+                    <FileText className="h-8 w-8 text-blue-400" />
+                    <div>
+                      <p className="text-base font-medium">Paste text to moderate</p>
+                      <p className="text-[11px] text-slate-400">Great for comments, posts, and chat logs.</p>
+                    </div>
+                  </div>
                   <textarea
-                    className="w-full p-4 border border-blue-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 text-blue-900"
+                    className="w-full p-3 border border-slate-700 bg-slate-900/80 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-100 text-sm resize-none"
                     rows="6"
                     placeholder="Type your sentences here..."
                     value={textToModerate}
                     onChange={(e) => setTextToModerate(e.target.value)}
                   ></textarea>
-                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <div className="flex flex-col sm:flex-row gap-3 justify-end">
                     <button
                       onClick={handleAIModeration}
                       disabled={!textToModerate || loading}
-                      className="bg-green-600 text-white font-medium px-6 py-3 rounded-lg shadow hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="bg-emerald-500 text-slate-950 font-semibold px-6 py-2 rounded-lg shadow hover:bg-emerald-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {loading ? 'Working...' : "AI Moderation"}
+                      {loading ? 'Running AI...' : 'Run AI check'}
                     </button>
                     <button
                       onClick={handleExpertReview}
                       disabled={!textToModerate || loading}
-                      className="bg-purple-600 text-white font-medium px-6 py-3 rounded-lg shadow hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="bg-purple-500 text-white font-semibold px-6 py-2 rounded-lg shadow hover:bg-purple-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {loading ? 'Submitting...' : "Expert's Review"}
+                      {loading ? 'Submitting...' : "Send to experts"}
                     </button>
                   </div>
                 </div>
               )}
 
               {(submitMessage || submitError) && (
-                <div className="mt-4 text-left">
+                <div className="mt-4 text-left space-y-2">
                   {submitMessage && (
-                    <div className="text-green-700 bg-green-50 border border-green-200 rounded-md px-4 py-2 mb-2">{submitMessage}</div>
+                    <div className="text-emerald-300 bg-emerald-500/10 border border-emerald-500/40 rounded-md px-4 py-2 text-sm">
+                      {submitMessage}
+                    </div>
                   )}
                   {submitError && (
-                    <div className="text-red-700 bg-red-50 border border-red-200 rounded-md px-4 py-2 mb-2">{submitError}</div>
+                    <div className="text-rose-300 bg-rose-500/10 border border-rose-500/40 rounded-md px-4 py-2 text-sm">
+                      {submitError}
+                    </div>
                   )}
                 </div>
               )}
             </div>
 
-            {lastModerationResult && (
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100">
-                <h2 className="text-xl font-semibold mb-4">Last Moderation Result</h2>
-                <div className={`text-lg font-medium ${aiModerationResult?.isInappropriate ? 'text-red-600' : 'text-green-600'}`}>
-                  {lastModerationResult}
-                </div>
-                {aiModerationResult?.reasons && aiModerationResult.reasons.length > 0 && (
-                  <div className="mt-4">
-                    <h3 className="font-medium text-blue-900 mb-2">Detected Categories:</h3>
-                    <ul className="list-disc pl-5 space-y-1">
-                      {aiModerationResult.reasons.map((reason, index) => (
-                        <li key={index} className="text-red-600">{reason}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
+            {(moderationResults || aiModerationResult) && (
+              <div className="bg-slate-900/70 p-6 rounded-2xl shadow-sm border border-slate-800">
+                <h2 className="text-lg font-semibold mb-1 text-slate-50">Moderation insights</h2>
+                <p className="text-xs text-slate-400 mb-4">
+                  A unified view of what the AI flagged and how your experts are responding.
+                </p>
 
-            {moderationResults && (
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100">
-                <h2 className="text-xl font-semibold mb-4">Detailed Moderation Results</h2>
-                <div className={`text-lg font-medium ${moderationResults?.isInappropriate ? 'text-red-600' : 'text-green-600'}`}>
-                  {moderationType === 'image' ? getModerationSummary(moderationResults) : moderationResults.summary}
+                {/* AI assessment */}
+                <div className="mb-4">
+                  <h3 className="text-xs font-semibold text-slate-300 mb-1 uppercase tracking-wide">
+                    AI assessment
+                  </h3>
+                  {moderationType === 'image' && moderationResults && (
+                    (() => {
+                      const summary = getImageModerationSummary(moderationResults);
+                      if (!summary) return null;
+                      return (
+                        <>
+                          <div
+                            className={`text-sm font-medium ${
+                              summary.isInappropriate ? 'text-rose-300' : 'text-emerald-300'
+                            }`}
+                          >
+                            {summary.summary}
+                          </div>
+                          {summary.reasons.length > 0 && (
+                            <ul className="mt-2 flex flex-wrap gap-2 text-[11px]">
+                              {summary.reasons.map((reason, idx) => (
+                                <li
+                                  key={idx}
+                                  className="px-2 py-1 rounded-full bg-rose-500/10 text-rose-200 border border-rose-500/40"
+                                >
+                                  {reason}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </>
+                      );
+                    })()
+                  )}
+
+                  {moderationType === 'text' && aiModerationResult && (
+                    <>
+                      <div
+                        className={`text-sm font-medium ${
+                          aiModerationResult.isInappropriate ? 'text-rose-300' : 'text-emerald-300'
+                        }`}
+                      >
+                        {aiModerationResult.summary}
+                      </div>
+                      {aiModerationResult.reasons && aiModerationResult.reasons.length > 0 && (
+                        <ul className="mt-2 flex flex-wrap gap-2 text-[11px]">
+                          {aiModerationResult.reasons.map((reason, index) => (
+                            <li
+                              key={index}
+                              className="px-2 py-1 rounded-full bg-rose-500/10 text-rose-200 border border-rose-500/40"
+                            >
+                              {reason}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </>
+                  )}
                 </div>
 
-                {moderationType === 'text' && moderationResults?.reasons && moderationResults.reasons.length > 0 && (
-                  <div className="mt-4">
-                    <h3 className="font-medium text-blue-900 mb-2">Detected Categories:</h3>
-                    <ul className="list-disc pl-5 space-y-1">
-                      {moderationResults.reasons.map((reason, index) => (
-                        <li key={index} className="text-red-600">{reason}</li>
-                      ))}
-                    </ul>
-                  </div>
+                {/* Expert review snapshot (latest item with a decision) */}
+                {myContent && myContent.length > 0 && (
+                  (() => {
+                    const latestReviewed = myContent.find(
+                      (item) => item.decision || item.expert_response
+                    );
+                    if (!latestReviewed) return null;
+
+                    const rawDecision =
+                      (latestReviewed.decision && String(latestReviewed.decision)) || '';
+                    const normalizedDecision = (() => {
+                      const d = rawDecision.toLowerCase();
+                      if (d === 'approved') return 'Approved';
+                      if (d === 'rejected') return 'Rejected';
+                      return rawDecision || 'Pending';
+                    })();
+
+                    const decisionColor =
+                      normalizedDecision === 'Approved'
+                        ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/40'
+                        : normalizedDecision === 'Rejected'
+                        ? 'bg-rose-500/10 text-rose-200 border-rose-500/40'
+                        : 'bg-blue-500/10 text-blue-200 border-blue-500/40';
+
+                    return (
+                      <div className="border-t border-slate-800 pt-4 mt-2">
+                        <h3 className="text-xs font-semibold text-slate-300 mb-1 uppercase tracking-wide">
+                          Latest expert decision
+                        </h3>
+                        <div className="flex items-center justify-between mb-1 text-[11px]">
+                          <span className="text-slate-300">
+                            {latestReviewed.text_content ? 'Text submission' : 'Image submission'}
+                          </span>
+                          <span className={`px-2 py-1 rounded-full border ${decisionColor}`}>
+                            {normalizedDecision}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-300 mt-1 whitespace-pre-wrap">
+                          {latestReviewed.expert_response || 'Awaiting expert response'}
+                        </p>
+                      </div>
+                    );
+                  })()
                 )}
               </div>
             )}
@@ -660,38 +658,58 @@ const Dashboard = () => {
           {/* Right Column */}
           <div className="space-y-6">
             {/* Recent Activity Section */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100">
-              <h2 className="text-xl font-semibold mb-4">Recent Activity</h2>
-              <div className="space-y-4">
+            <div className="bg-slate-900/70 p-6 rounded-2xl shadow-sm border border-slate-800">
+              <h2 className="text-lg font-semibold mb-2 text-slate-50">Recent activity</h2>
+              <div className="space-y-3">
                 {recentActivity.map(activity => (
-                  <div key={activity.id} className="flex items-start gap-4 p-4 bg-blue-50 rounded-lg">
-                    <activity.icon className="h-6 w-6 text-blue-400 mt-1" />
+                  <div
+                    key={activity.id}
+                    className="flex items-start gap-3 p-3 bg-slate-950/50 rounded-xl border border-slate-800"
+                  >
+                    <activity.icon className="h-5 w-5 text-blue-300 mt-1" />
                     <div className="flex-1">
-                      <div className="font-medium text-blue-900">{activity.filename}</div>
-                      <div className="text-sm text-blue-700">{activity.date}</div>
+                      <div className="text-sm font-medium text-slate-100">
+                        {activity.filename}
+                      </div>
+                      <div className="text-[11px] text-slate-400">{activity.date}</div>
                     </div>
-                    <div className={`text-xs px-3 py-1 rounded-full font-medium whitespace-nowrap ${activity.status === 'Approved' ? 'bg-green-100 text-green-700' :
-                        activity.status === 'Pending' ? 'bg-blue-100 text-blue-700' :
-                          activity.status === 'Under Review' ? 'bg-orange-100 text-orange-700' :
-                            'bg-red-100 text-red-700'
-                      }`}>
+                    <div
+                      className={`text-[11px] px-3 py-1 rounded-full font-medium whitespace-nowrap ${
+                        activity.status === 'Approved'
+                          ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/40'
+                          : activity.status === 'Pending'
+                          ? 'bg-blue-500/10 text-blue-200 border border-blue-500/40'
+                          : activity.status === 'Under Review'
+                          ? 'bg-amber-500/10 text-amber-200 border border-amber-500/40'
+                          : 'bg-rose-500/10 text-rose-200 border border-rose-500/40'
+                      }`}
+                    >
                       {activity.status}
                     </div>
                   </div>
                 ))}
+                {recentActivity.length === 0 && (
+                  <p className="text-xs text-slate-400">No recent actions yet.</p>
+                )}
               </div>
-              <a href="#" className="mt-6 w-full block text-center text-blue-600 font-medium py-2 rounded-lg hover:bg-blue-50 transition-colors">
-                View all activity history →
-              </a>
+              <button
+                type="button"
+                className="mt-4 w-full text-center text-[11px] text-slate-300 font-medium py-2 rounded-lg border border-slate-700 hover:border-blue-400 hover:text-blue-300"
+              >
+                View full activity history
+              </button>
             </div>
           </div>
         </div>
         {/* User Content List */}
         <div className="mt-8">
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100">
-            <h2 className="text-xl font-semibold mb-4">My Content</h2>
+          <div className="bg-slate-900/70 p-6 rounded-2xl shadow-sm border border-slate-800">
+            <h2 className="text-lg font-semibold mb-2 text-slate-50">My content</h2>
+            <p className="text-xs text-slate-400 mb-4">
+              Track everything you or your team has submitted and how it was resolved.
+            </p>
             {myContent.length === 0 ? (
-              <p className="text-blue-700">No content yet.</p>
+              <p className="text-xs text-slate-400">No content yet.</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {myContent.map((item) => {
@@ -718,47 +736,66 @@ const Dashboard = () => {
                   })();
                   const decisionStyles =
                     normalizedDecision === 'Approved'
-                      ? 'bg-green-100 text-green-700 border-green-200'
+                      ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/40'
                       : normalizedDecision === 'Rejected'
-                        ? 'bg-red-100 text-red-700 border-red-200'
-                        : normalizedDecision === 'Under Review'
-                          ? 'bg-orange-100 text-orange-700 border-orange-200'
-                          : 'bg-blue-100 text-blue-700 border-blue-200';
+                      ? 'bg-rose-500/10 text-rose-200 border-rose-500/40'
+                      : normalizedDecision === 'Under Review'
+                      ? 'bg-amber-500/10 text-amber-200 border-amber-500/40'
+                      : 'bg-blue-500/10 text-blue-200 border-blue-500/40';
                   const containerStyles =
                     normalizedDecision === 'Approved'
-                      ? 'bg-green-50 border-green-100'
+                      ? 'bg-slate-950/60 border-emerald-500/30'
                       : normalizedDecision === 'Rejected'
-                        ? 'bg-red-50 border-red-100'
-                        : normalizedDecision === 'Under Review'
-                          ? 'bg-orange-50 border-orange-100'
-                          : 'bg-blue-50 border-blue-100';
+                      ? 'bg-slate-950/60 border-rose-500/30'
+                      : normalizedDecision === 'Under Review'
+                      ? 'bg-slate-950/60 border-amber-500/30'
+                      : 'bg-slate-950/60 border-slate-700';
                   const expertResponse = item.expert_response || 'Awaiting expert review';
                   // status-specific styles for the top-right badge
                   const statusStyles =
                     normalizedStatus === 'Done'
-                      ? 'bg-green-100 text-green-700 border-green-200'
+                      ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/40'
                       : normalizedStatus === 'Under Review'
-                        ? 'bg-orange-100 text-orange-700 border-orange-200'
-                        : 'bg-blue-100 text-blue-700 border-blue-200';
+                      ? 'bg-amber-500/10 text-amber-200 border-amber-500/40'
+                      : 'bg-blue-500/10 text-blue-200 border-blue-500/40';
                   return (
-                    <div key={item.id || item._id} className={`rounded-xl p-4 shadow-sm border ${containerStyles}`}>
+                    <div
+                      key={item.id || item._id}
+                      className={`rounded-2xl p-4 shadow-sm border ${containerStyles}`}
+                    >
                       <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-semibold text-blue-900">Content</h3>
-                        <span className={`text-xs px-2 py-1 rounded-full border ${statusStyles}`}>{normalizedStatus}</span>
+                        <h3 className="text-xs font-semibold text-slate-200 uppercase tracking-wide">
+                          Content
+                        </h3>
+                        <span className={`text-[11px] px-2 py-1 rounded-full border ${statusStyles}`}>
+                          {normalizedStatus}
+                        </span>
                       </div>
                       <div className="mb-3">
                         {isImage ? (
-                          <img src={imageUrl} alt="uploaded" className="w-full h-40 object-cover rounded-md" />
+                          <img
+                            src={imageUrl}
+                            alt="uploaded"
+                            className="w-full h-40 object-cover rounded-lg border border-slate-800"
+                          />
                         ) : (
-                          <p className="text-blue-900 whitespace-pre-wrap break-words bg-blue-50 rounded-md p-3">{item.text_content}</p>
+                          <p className="text-xs text-slate-100 whitespace-pre-wrap break-words bg-slate-900/80 rounded-lg p-3 border border-slate-800">
+                            {item.text_content}
+                          </p>
                         )}
                       </div>
-                      <div className="border-t border-blue-100 pt-3">
-                        <div className="text-sm text-blue-700 mb-1 font-medium">Expert Response</div>
-                        <p className="text-sm text-blue-900 whitespace-pre-wrap break-words">{expertResponse}</p>
+                      <div className="border-t border-slate-800 pt-3">
+                        <div className="text-[11px] text-slate-400 mb-1 font-medium">
+                          Expert response
+                        </div>
+                        <p className="text-xs text-slate-100 whitespace-pre-wrap break-words">
+                          {expertResponse}
+                        </p>
                         <div className="mt-3 flex items-center justify-between">
-                          <div className="text-sm text-blue-700 font-medium">Decision</div>
-                          <span className={`text-xs px-2 py-1 rounded-full border ${decisionStyles}`}>{normalizedDecision}</span>
+                          <div className="text-[11px] text-slate-400 font-medium">Decision</div>
+                          <span className={`text-[11px] px-2 py-1 rounded-full border ${decisionStyles}`}>
+                            {normalizedDecision}
+                          </span>
                         </div>
                       </div>
                     </div>

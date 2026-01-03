@@ -1,30 +1,23 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React from 'react';
 import { FaShieldAlt, FaImage, FaCheckCircle } from 'react-icons/fa';
-import censorProLogo from '../assets/CensorProLogo.png'
-import { Link, useNavigate } from 'react-router-dom';
-
+import { useNavigate } from 'react-router-dom';
+import Navbar from '../components/Navbar';
+import { TypeAnimation } from 'react-type-animation';
 
 const Home = () => {
   const navigate = useNavigate();
-  const [isAuthed, setIsAuthed] = useState(false);
-  const API_BASE_URL = useMemo(() => (
-    import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
-  ), []);
-
-  useEffect(() => {
-    try { setIsAuthed(!!localStorage.getItem('token')); } catch {}
-    const onStorage = (e) => { if (e.key === 'token') setIsAuthed(!!e.newValue); };
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
-  }, []);
 
   const handleTryItNow = () => {
     let token = null;
-    try { token = localStorage.getItem('token'); } catch {}
+    try {
+      token = localStorage.getItem('token');
+    } catch {}
+
     if (!token) {
       navigate('/login');
       return;
     }
+
     try {
       const payload = JSON.parse(atob(token.split('.')[1] || ''));
       const isAdmin = payload?.role === 'admin' || payload?.isAdmin === true;
@@ -33,84 +26,129 @@ const Home = () => {
       navigate('/dashboard');
     }
   };
-  return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-100 to-blue-200 text-blue-900">
-      
-      {/* Header */}
-      <header className="bg-white shadow-md py-4 px-6 flex justify-between items-center rounded-b-xl">
-        <div className="flex items-center gap-2">
-          <img src={censorProLogo} alt="CensorPro Logo" className="w-10 h-10" />
-          <span className="font-bold text-xl text-blue-600">CensorPro</span>
-        </div>
-        <nav className="hidden md:flex gap-6 text-blue-700 font-medium">
-          <Link to="/" className="hover:underline">Home</Link>
-          <a href="#" className="hover:underline">Features</a>
-          <a href="#" className="hover:underline">Docs</a>
-          <a href="#" className="hover:underline">Contact</a>
-        </nav>
-        {isAuthed ? (
-          <button
-            onClick={async () => {
-              try { localStorage.removeItem('token'); } catch {}
-              try { await fetch(`${API_BASE_URL}/auth/logout`, { method: 'POST' }); } catch {}
-              setIsAuthed(false);
-              navigate('/', { replace: true });
-            }}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 cursor-pointer"
-          >
-            Sign Out
-          </button>
-        ) : (
-          <Link
-            to="/login"
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 cursor-pointer"
-          >
-            Sign In
-          </Link>
-        )}
 
-        
-      </header>
+  return (
+    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-50">
+      <Navbar />
 
       {/* Hero Section */}
-      <main className="flex-1 flex flex-col justify-center items-center text-center px-6">
-        <h1 className="text-4xl md:text-5xl font-bold mb-4 pt-6">
-          Empower Your Platform with <span className="text-blue-700">Safe Content</span>
-        </h1>
-        <p className="max-w-xl text-lg mb-8">
-          CensorPro helps you detect abusive, offensive, or sensitive content in uploaded images instantly. Built for creators, businesses, and communities to stay secure and respectful.
-        </p>
-        <button onClick={handleTryItNow} className="bg-blue-600 text-white px-6 py-3 rounded-md text-lg hover:bg-blue-700 transition-all cursor-pointer">
-          Try It Now
-        </button>
+      <main className="flex-1 flex flex-col justify-center items-center text-center px-6 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
+        <section className="w-full max-w-5xl pt-10" id="hero">
+          <p className="uppercase tracking-[0.25em] text-xs text-blue-400 mb-4">
+            Trust &amp; Safety · Content Moderation Platform
+          </p>
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4">
+            Keep your community {" "}
+            <TypeAnimation
+            sequence = {[
+            'safe',
+             1000,
+            'sure',
+             1000,
+            'firm',
+             1000,
+            ]}
+            wrapper="span"
+            speed={50}
+            className="text-blue-400"
+            repeat={Infinity}
+            />
+          {" "}without slowing it down.
+          </h1>
+          <p className="max-w-2xl mx-auto text-base md:text-lg text-slate-200 mb-8">
+            CensorPro combines real-time AI with expert review workflows so you can detect toxic,
+            unsafe, and non-compliant content across images and text before it reaches your users.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-10">
+            <button
+              onClick={handleTryItNow}
+              className="bg-blue-500 hover:bg-blue-400 text-slate-950 font-semibold px-8 py-3 rounded-lg text-lg cursor-pointer shadow-lg shadow-blue-500/30"
+            >
+              Launch moderation console
+            </button>
+            <button
+              onClick={() => {
+                const el = document.getElementById('how-it-works');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="border border-slate-600 text-slate-100 px-6 py-3 rounded-lg text-sm font-medium hover:border-blue-400 hover:text-blue-300 cursor-pointer"
+            >
+              See how it works
+            </button>
+          </div>
+        </section>
 
         {/* Feature Highlights */}
-        <div className="grid md:grid-cols-3 gap-6 mt-16 w-full max-w-5xl">
-          <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition">
-            <FaImage className="text-3xl text-blue-600 mb-4 mx-auto" />
-            <h3 className="text-xl font-semibold mb-2">Image Upload</h3>
-            <p>Upload any image containing text, and we’ll analyze it for harmful or inappropriate content.</p>
+        <section
+          id="features"
+          className="grid md:grid-cols-3 gap-6 mt-4 w-full max-w-5xl text-left"
+        >
+          <div className="bg-slate-900/60 border border-slate-800 p-6 rounded-xl shadow-sm">
+            <FaImage className="text-3xl text-blue-400 mb-4" />
+            <h3 className="text-xl font-semibold mb-2">Multi-format ingestion</h3>
+            <p className="text-sm text-slate-200">
+              Upload images or paste raw text. CensorPro automatically routes content through the
+              right moderation pipeline.
+            </p>
           </div>
-          <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition">
-            <FaShieldAlt className="text-3xl text-blue-600 mb-4 mx-auto" />
-            <h3 className="text-xl font-semibold mb-2">Content Filtering</h3>
-            <p>AI-powered scanning ensures quick and reliable detection of sensitive or abusive content.</p>
+          <div className="bg-slate-900/60 border border-slate-800 p-6 rounded-xl shadow-sm">
+            <FaShieldAlt className="text-3xl text-blue-400 mb-4" />
+            <h3 className="text-xl font-semibold mb-2">AI + policy controls</h3>
+            <p className="text-sm text-slate-200">
+              AI flagging for nudity, violence, hate, and more, aligned with your trust &amp; safety
+              thresholds and compliance rules.
+            </p>
           </div>
-          <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition">
-            <FaCheckCircle className="text-3xl text-blue-600 mb-4 mx-auto" />
-            <h3 className="text-xl font-semibold mb-2">Safe Results</h3>
-            <p>Get clear results and suggestions to improve your content safety and stay compliant.</p>
+          <div className="bg-slate-900/60 border border-slate-800 p-6 rounded-xl shadow-sm">
+            <FaCheckCircle className="text-3xl text-blue-400 mb-4" />
+            <h3 className="text-xl font-semibold mb-2">Human-in-the-loop review</h3>
+            <p className="text-sm text-slate-200">
+              Route edge cases to expert moderators with a clear queue, audit trail, and structured
+              response options.
+            </p>
           </div>
-        </div>
+        </section>
+
+        {/* How it works strip */}
+        <section
+          id="how-it-works"
+          className="w-full max-w-5xl mt-16 bg-slate-900/70 border border-slate-800 rounded-2xl p-6 md:p-8 text-left"
+        >
+          <h2 className="text-2xl font-semibold mb-4">How CensorPro moderates content</h2>
+          <ol className="list-decimal list-inside space-y-2 text-sm text-slate-200">
+            <li>Creators upload an image or paste text directly into the moderation console.</li>
+            <li>
+              Our AI models instantly score content for toxicity, nudity, violence, hate and other
+              sensitive categories.
+            </li>
+            <li>
+              Clear, color-coded labels explain why something was flagged so your team can act with
+              confidence.
+            </li>
+            <li>
+              If needed, items are escalated to expert reviewers who provide a final decision and
+              guidance.
+            </li>
+          </ol>
+        </section>
       </main>
 
       {/* Footer */}
-      <footer className="bg-white py-6 mt-16 rounded-t-xl text-center text-sm text-blue-700">
+      <footer
+        id="contact"
+        className="bg-slate-950 border-t border-slate-800 py-6 mt-10 text-center text-xs md:text-sm text-slate-400"
+      >
         <p>&copy; {new Date().getFullYear()} CensorPro-SEWDL. All rights reserved.</p>
-        <div className="mt-2">
-          <a href="#" className="mx-2 hover:underline">Privacy</a>
-          <a href="#" className="mx-2 hover:underline">Terms</a>
-          <a href="#" className="mx-2 hover:underline">Support</a>
+        <div className="mt-2 space-x-4">
+          <button className="hover:text-blue-300" type="button">
+            Privacy
+          </button>
+          <button className="hover:text-blue-300" type="button">
+            Terms
+          </button>
+          <button className="hover:text-blue-300" type="button">
+            Support
+          </button>
         </div>
       </footer>
     </div>
@@ -118,4 +156,3 @@ const Home = () => {
 };
 
 export default Home;
-

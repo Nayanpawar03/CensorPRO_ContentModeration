@@ -1,10 +1,8 @@
 import express from "express";
 import bodyParser from "body-parser";
 import cors from "cors";
-import passport from "passport";
 import dotenv from "dotenv";
 
-import "./passport-setup.js";
 import authRoutes from "./routes/auth.js";
 import contentRoutes from "./routes/content.js";
 
@@ -21,7 +19,6 @@ app.use(cors({
 }));
 
 app.use(bodyParser.json());
-app.use(passport.initialize());
 
 // Serve uploaded images
 app.use("/uploads", express.static("uploads"));

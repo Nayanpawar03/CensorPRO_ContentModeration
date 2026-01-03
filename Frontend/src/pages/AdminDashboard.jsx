@@ -1,7 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import censorProLogo from '../assets/CensorProLogo.png';
-
+import Navbar from '../components/Navbar';
 const AdminDashboard = () => {
   const API_BASE_URL = useMemo(() => (
     import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
@@ -19,30 +17,6 @@ const AdminDashboard = () => {
   const getToken = () => {
     try { return localStorage.getItem('token'); } catch { return null; }
   };
-
-  // Capture token from URL after OAuth redirect
-  useEffect(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    const token = searchParams.get("token");
-    if (token) {
-      localStorage.setItem("token", token);
-
-      // Clean URL
-      const cleanUrl = window.location.origin + window.location.pathname;
-      window.history.replaceState({}, document.title, cleanUrl);
-
-      // Verify role
-      try {
-        const payload = JSON.parse(atob(token.split(".")[1]));
-        if (payload.role !== "admin") {
-          alert("You are not authorized to access the Admin Dashboard");
-          window.location.href = "/";
-        }
-      } catch {
-        console.error("Invalid token");
-      }
-    }
-  }, []);
 
   const fetchQueue = async () => {
     const token = getToken();
@@ -124,111 +98,114 @@ const AdminDashboard = () => {
   const isImage = (item) => !!item?.image_path;
   const itemId = (item) => item.id || item._id;
 
-  const Header = () => (
-    <header className="bg-white shadow-md py-4 px-6 flex justify-between items-center rounded-b-xl">
-      <div className="flex items-center gap-2">
-        <img src={censorProLogo} alt="CensorPro Logo" className="w-10 h-10" />
-        <span className="font-bold text-xl text-blue-600">CensorPro</span>
-      </div>
-      <nav className="hidden md:flex gap-6 text-blue-700 font-medium">
-        <Link to="/" className="hover:underline">Home</Link>
-        <a href="#" className="hover:underline">Features</a>
-        <a href="#" className="hover:underline">Docs</a>
-        <a href="#" className="hover:underline">Contact</a>
-      </nav>
-      <button
-        onClick={() => { localStorage.removeItem('token'); window.location.href = '/'; }}
-        className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-      >
-        Sign Out
-      </button>
-    </header>
-  );
-
   const StatCard = ({ title, value, change, statusColor }) => (
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100 flex-1 min-w-[150px] md:min-w-[180px]">
+    <div className="bg-slate-900/70 p-5 rounded-2xl shadow-sm border border-slate-800 flex-1 min-w-[150px] md:min-w-[180px]">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-medium text-blue-600">{title}</h3>
+        <h3 className="text-xs font-medium uppercase tracking-wide text-slate-400">{title}</h3>
       </div>
       <div>
-        <div className="text-3xl font-bold text-blue-900 mb-1">{value}</div>
-        <span className={`text-sm font-medium ${statusColor}`}>{change}</span>
+        <div className="text-3xl font-semibold text-slate-50 mb-1">{value}</div>
+        <span className={`text-xs font-medium ${statusColor}`}>{change}</span>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-100 to-blue-200 text-blue-900">
-      <Header />
+    <div className="min-h-screen bg-slate-950 text-slate-50">
+      <Navbar />
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-blue-900">Admin Dashboard</h1>
-          <p className="text-blue-900 mt-1">Review user submissions and manage moderation decisions</p>
+        <div className="mb-8 flex flex-col gap-2">
+          <p className="text-xs font-semibold tracking-[0.2em] text-blue-400 uppercase">Admin console</p>
+          <h1 className="text-2xl md:text-3xl font-semibold text-slate-50">Admin Dashboard</h1>
+          <p className="text-sm text-slate-300 max-w-xl">Review user submissions and manage moderation decisions.</p>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6 mb-8">
-          <StatCard title="Total" value={stats.total} change="All submissions" statusColor="text-blue-700" />
-          <StatCard title="Pending" value={stats.pending} change="Awaiting review" statusColor="text-yellow-500" />
-          <StatCard title="Under Review" value={stats.under_review} change="In progress" statusColor="text-orange-500" />
-          <StatCard title="Approved" value={stats.approved} change="Accepted" statusColor="text-green-500" />
-          <StatCard title="Rejected" value={stats.rejected} change="Declined" statusColor="text-red-500" />
+          <StatCard title="Total" value={stats.total} change="All submissions" statusColor="text-slate-400" />
+          <StatCard title="Pending" value={stats.pending} change="Awaiting review" statusColor="text-amber-300" />
+          <StatCard title="Under review" value={stats.under_review} change="In progress" statusColor="text-orange-300" />
+          <StatCard title="Approved" value={stats.approved} change="Accepted" statusColor="text-emerald-300" />
+          <StatCard title="Rejected" value={stats.rejected} change="Declined" statusColor="text-rose-300" />
         </div>
 
         <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Content Review Queue</h2>
-          <button onClick={() => { fetchQueue(); fetchStats(); }} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Refresh</button>
+          <h2 className="text-lg font-semibold text-slate-50">Content review queue</h2>
+          <button
+            onClick={() => {
+              fetchQueue();
+              fetchStats();
+            }}
+            className="bg-blue-500 text-slate-950 px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-400"
+          >
+            Refresh
+          </button>
         </div>
 
-        {message && <div className="mb-4 text-green-700 bg-green-50 border border-green-200 rounded-md px-4 py-2">{message}</div>}
-        {error && <div className="mb-4 text-red-700 bg-red-50 border border-red-200 rounded-md px-4 py-2">{error}</div>}
-        {loading && <div className="mb-4">Loading...</div>}
+        {message && (
+          <div className="mb-4 text-emerald-300 bg-emerald-500/10 border border-emerald-500/40 rounded-md px-4 py-2 text-sm">
+            {message}
+          </div>
+        )}
+        {error && (
+          <div className="mb-4 text-rose-300 bg-rose-500/10 border border-rose-500/40 rounded-md px-4 py-2 text-sm">
+            {error}
+          </div>
+        )}
+        {loading && <div className="mb-4 text-sm text-slate-300">Loading...</div>}
 
         {queue.length === 0 && !loading ? (
-          <div className="text-blue-700">No pending items.</div>
+          <div className="text-sm text-slate-400">No pending items.</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {queue.map(item => (
-              <div key={itemId(item)} className="bg-white border border-blue-100 rounded-xl p-4">
-                <div className="text-sm text-blue-700 mb-2">{item.user_email || item.email}</div>
-                <div className="mb-3">
+              <div
+                key={itemId(item)}
+                className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 flex flex-col gap-3"
+              >
+                <div className="text-xs text-slate-300 mb-1 font-medium">
+                  {item.user_email || item.email}
+                </div>
+                <div className="mb-2">
                   {isImage(item) ? (
-                    <div className="flex items-center justify-between bg-blue-50 border border-blue-100 p-3 rounded-md">
-                      <div className="text-sm text-blue-900">Image content</div>
+                    <div className="flex items-center justify-between bg-slate-950/60 border border-slate-700 p-3 rounded-lg">
+                      <div className="text-xs text-slate-100">Image content</div>
                       <button
-                        onClick={() => { setPreviewUrl(`${API_BASE_URL}${item.image_path}`); setViewed(prev => ({ ...prev, [itemId(item)]: true })); }}
-                        className="bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700"
+                        onClick={() => {
+                          setPreviewUrl(`${API_BASE_URL}${item.image_path}`);
+                          setViewed(prev => ({ ...prev, [itemId(item)]: true }));
+                        }}
+                        className="bg-blue-500 text-slate-950 px-3 py-1 rounded-md text-xs font-medium hover:bg-blue-400"
                       >
                         View
                       </button>
                     </div>
                   ) : (
-                    <p className="text-blue-900 whitespace-pre-wrap break-words">{item.text_content}</p>
+                    <p className="text-xs text-slate-100 whitespace-pre-wrap break-words bg-slate-950/60 border border-slate-700 rounded-lg p-3">
+                      {item.text_content}
+                    </p>
                   )}
                 </div>
                 <div className="space-y-3">
                   <input
                     type="text"
-                    placeholder="Expert Response (safe/unsafe)"
+                    placeholder="Expert response (safe / unsafe)"
                     value={responses[itemId(item)]?.expert_response || ''}
                     onChange={(e) => updateResponse(itemId(item), 'expert_response', e.target.value)}
-                    disabled={isImage(item) && !viewed[itemId(item)]}
-                    className="w-full p-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+                    className="w-full p-2 border border-slate-700 bg-slate-950/60 text-xs text-slate-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-500"
                   />
                   <select
                     value={responses[itemId(item)]?.decision || 'Approved'}
                     onChange={(e) => updateResponse(itemId(item), 'decision', e.target.value)}
-                    disabled={isImage(item) && !viewed[itemId(item)]}
-                    className="w-full p-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+                    className="w-full p-2 border border-slate-700 bg-slate-950/60 text-xs text-slate-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="Approved">Approved</option>
                     <option value="Rejected">Rejected</option>
                   </select>
                   <button
                     onClick={() => submitReview(itemId(item))}
-                    disabled={isImage(item) && !viewed[itemId(item)]}
-                    className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-60"
+                    className="bg-emerald-500 text-slate-950 px-4 py-2 rounded-md text-sm font-medium hover:bg-emerald-400"
                   >
-                    Send Response
+                    Send response
                   </button>
                 </div>
               </div>
@@ -238,13 +215,15 @@ const AdminDashboard = () => {
       </div>
 
       {previewUrl && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-white p-4 rounded-xl max-w-4xl w-[90%]">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl max-w-4xl w-[90%]">
             <div className="flex justify-between items-center mb-3">
-              <h3 className="text-blue-900 font-semibold">Preview</h3>
-              <button onClick={() => setPreviewUrl(null)} className="text-blue-600 hover:underline">Close</button>
+              <h3 className="text-slate-50 font-semibold">Preview</h3>
+              <button onClick={() => setPreviewUrl(null)} className="text-slate-300 hover:text-blue-300 text-sm">
+                Close
+              </button>
             </div>
-            <img src={previewUrl} alt="preview" className="w-full max-h-[80vh] object-contain rounded-md" />
+            <img src={previewUrl} alt="preview" className="w-full max-h-[80vh] object-contain rounded-lg border border-slate-800" />
           </div>
         </div>
       )}
