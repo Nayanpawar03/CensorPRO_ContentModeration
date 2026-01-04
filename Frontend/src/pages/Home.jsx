@@ -38,21 +38,16 @@ const Home = () => {
             Trust &amp; Safety · Content Moderation Platform
           </p>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4">
-            Build a trusted space where conversations stay {" "}
-            <TypeAnimation
-            sequence = {[
-            'safe',
-             1000,
-            'sure',
-             1000,
-            'firm',
-             1000,
-            ]}
-            wrapper="span"
-            speed={50}
-            className="text-blue-400"
-            repeat={Infinity}
-            />
+            Build a trusted space where conversations stay{' '}
+            <span className="inline-block min-w-[4ch] align-baseline text-left">
+              <TypeAnimation
+                sequence={['safe', 1000, 'sure', 1000, 'firm', 1000]}
+                wrapper="span"
+                speed={50}
+                className="text-blue-400"
+                repeat={Infinity}
+              />
+            </span>
           </h1>
           <p className="max-w-2xl mx-auto text-base md:text-lg text-slate-200 mb-8">
             CensorPro combines real-time AI with expert review workflows so you can detect toxic,

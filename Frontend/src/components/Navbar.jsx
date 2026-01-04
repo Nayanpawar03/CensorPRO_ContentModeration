@@ -109,21 +109,11 @@ const Navbar = () => {
           aria-label="Toggle navigation menu"
         >
           <span className="sr-only">Toggle navigation menu</span>
-          <span
-            className={`block h-0.5 w-5 bg-blue-700 transition-transform duration-200 ease-out ${
-              isMenuOpen ? 'translate-y-1.5 rotate-45' : ''
-            }`}
-          />
-          <span
-            className={`block h-0.5 w-5 bg-blue-700 transition-opacity duration-200 ease-out ${
-              isMenuOpen ? 'opacity-0' : 'opacity-100'
-            }`}
-          />
-          <span
-            className={`block h-0.5 w-5 bg-blue-700 transition-transform duration-200 ease-out ${
-              isMenuOpen ? '-translate-y-1.5 -rotate-45' : ''
-            }`}
-          />
+          <span className="flex flex-col space-y-1">
+            <span className="block h-0.5 w-5 bg-blue-700" />
+            <span className="block h-0.5 w-5 bg-blue-700" />
+            <span className="block h-0.5 w-5 bg-blue-700" />
+          </span>
         </button>
       </div>
 
