@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 
@@ -8,11 +8,25 @@ const Register = () => {
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+  const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: ''
   });
+
+  const saveTokenAndRedirect = (token) => {
+    try {
+      localStorage.setItem('token', token);
+    } catch {}
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1] || ''));
+      const isAdmin = payload?.role === 'admin' || payload?.isAdmin === true;
+      navigate(isAdmin ? '/admin' : '/dashboard', { replace: true });
+    } catch {
+      navigate('/dashboard', { replace: true });
+    }
+  };
 
   const handleChange = (e) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -67,6 +81,72 @@ const Register = () => {
     }
   };
 
+  const handleGoogleLogin = async (credential) => {
+    if (!credential) return;
+    setSubmitting(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential }),
+      });
+
+      const contentType = res.headers.get('content-type') || '';
+      let data = null;
+      if (contentType.includes('application/json')) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        throw new Error(text || `Google login failed with status ${res.status}`);
+      }
+
+      if (!res.ok || !data?.success) throw new Error(data?.error || 'Google login failed');
+
+      setMessage('Registration successful');
+      if (data.token) saveTokenAndRedirect(data.token);
+    } catch (err) {
+      setError(err.message || 'Google login failed');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID) return;
+
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      if (!window.google || !window.google.accounts || !window.google.accounts.id) return;
+
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: (response) => {
+          handleGoogleLogin(response.credential);
+        },
+      });
+
+      const button = document.getElementById('google-signin-button-register');
+      if (button) {
+        window.google.accounts.id.renderButton(button, {
+          theme: 'outline',
+          size: 'large',
+          width: '100%',
+        });
+      }
+    };
+
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, [GOOGLE_CLIENT_ID]);
+
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col">
       <Navbar />
@@ -74,8 +154,8 @@ const Register = () => {
       {/* Register Form */}
       <div className="flex flex-1 justify-center items-center bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
         <div className="bg-transparent w-full max-w-md text-center p-6">
-          <h1 className="text-3xl font-bold text-blue-800 mb-2">Register</h1>
-          <p className="text-sm text-blue-700 mb-6">
+          <h1 className="text-3xl font-bold text-slate-50 mb-2">Register</h1>
+          <p className="text-sm text-slate-200 mb-6">
             Create an account to start moderating your content effectively.
           </p>
 
@@ -92,7 +172,7 @@ const Register = () => {
               placeholder="Full Name"
               value={formData.name}
               onChange={handleChange}
-              className="px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="px-4 py-3 border border-slate-600 bg-white text-slate-900 placeholder:text-slate-500 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
             <input
               type="email"
@@ -100,7 +180,7 @@ const Register = () => {
               placeholder="Email"
               value={formData.email}
               onChange={handleChange}
-              className="px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="px-4 py-3 border border-slate-600 bg-white text-slate-900 placeholder:text-slate-500 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
             <input
               type="password"
@@ -108,20 +188,31 @@ const Register = () => {
               placeholder="Password"
               value={formData.password}
               onChange={handleChange}
-              className="px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="px-4 py-3 border border-slate-600 bg-white text-slate-900 placeholder:text-slate-500 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
             <button
               type="submit"
               disabled={submitting}
-              className="bg-blue-600 text-white py-3 rounded-md hover:bg-blue-700 font-medium disabled:opacity-50"
+              className="bg-blue-600 cursor-pointer text-white py-3 rounded-md hover:bg-blue-700 font-medium disabled:opacity-50"
             >
               {submitting ? 'Creating account...' : 'Register'}
             </button>
           </form>
 
-          <p className="text-sm mt-4 text-blue-800">
+          {GOOGLE_CLIENT_ID && (
+            <div className="mt-4">
+              <div className="flex items-center justify-center gap-2 text-slate-300 text-sm mb-3">
+                <span className="h-px flex-1 bg-slate-700" />
+                <span>or</span>
+                <span className="h-px flex-1 bg-slate-700" />
+              </div>
+              <div id="google-signin-button-register" className="flex justify-center" />
+            </div>
+          )}
+
+          <p className="text-sm mt-4 text-slate-200">
             Already have an account?{' '}
-            <Link to="/login" className="underline text-blue-900 hover:text-blue-700">
+            <Link to="/login" className="underline text-slate-50 hover:text-blue-300">
               Sign In
             </Link>
           </p>

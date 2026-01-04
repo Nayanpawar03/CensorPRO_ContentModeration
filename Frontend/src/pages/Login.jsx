@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 
@@ -10,6 +10,7 @@ const Login = () => {
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+  const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
   const saveTokenAndRedirect = (token) => {
     try {
@@ -61,6 +62,72 @@ const Login = () => {
     }
   };
 
+  const handleGoogleLogin = async (credential) => {
+    if (!credential) return;
+    setSubmitting(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential }),
+      });
+
+      const contentType = res.headers.get('content-type') || '';
+      let data = null;
+      if (contentType.includes('application/json')) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        throw new Error(text || `Google login failed with status ${res.status}`);
+      }
+
+      if (!res.ok || !data?.success) throw new Error(data?.error || 'Google login failed');
+
+      setMessage('Login successful');
+      if (data.token) saveTokenAndRedirect(data.token);
+    } catch (err) {
+      setError(err.message || 'Google login failed');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID) return;
+
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      if (!window.google || !window.google.accounts || !window.google.accounts.id) return;
+
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: (response) => {
+          handleGoogleLogin(response.credential);
+        },
+      });
+
+      const button = document.getElementById('google-signin-button');
+      if (button) {
+        window.google.accounts.id.renderButton(button, {
+          theme: 'outline',
+          size: 'large',
+          width: '100%',
+        });
+      }
+    };
+
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, [GOOGLE_CLIENT_ID]);
+
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col">
       <Navbar />
@@ -103,8 +170,19 @@ const Login = () => {
             </button>
           </form>
 
+          {GOOGLE_CLIENT_ID && (
+            <div className="mt-4">
+              <div className="flex items-center justify-center gap-2 text-slate-300 text-sm mb-3">
+                <span className="h-px flex-1 bg-slate-700" />
+                <span>or</span>
+                <span className="h-px flex-1 bg-slate-700" />
+              </div>
+              <div id="google-signin-button" className="flex justify-center" />
+            </div>
+          )}
+
           <p className="text-sm mt-4 text-slate-200">
-            Don’t have an account?{' '}
+            Dont have an account?{' '}
             <Link to="/register" className="underline cursor-pointer text-slate-50 hover:text-blue-300">
               Register
             </Link>
