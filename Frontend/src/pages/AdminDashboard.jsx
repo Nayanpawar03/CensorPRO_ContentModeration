@@ -27,10 +27,10 @@ const AdminDashboard = () => {
     try { return localStorage.getItem('token'); } catch { return null; }
   };
 
-  const fetchQueue = async () => {
+  const fetchQueue = async (showLoader = true) => {
     const token = getToken();
     if (!token) { setError("Not authenticated"); return; }
-    setLoading(true);
+    if (showLoader) setLoading(true);
     setError(null);
     try {
       const res = await fetch(`${API_BASE_URL}/content/admin/queue`, {
@@ -42,7 +42,7 @@ const AdminDashboard = () => {
     } catch (err) {
       setError(err.message || 'Failed to fetch queue');
     } finally {
-      setLoading(false);
+      if (showLoader) setLoading(false);
     }
   };
 
@@ -59,9 +59,14 @@ const AdminDashboard = () => {
   };
 
   useEffect(() => {
-    fetchQueue();
+    // Initial load shows loading indicator
+    fetchQueue(true);
     fetchStats();
-    const intervalId = setInterval(() => { fetchQueue(); fetchStats(); }, 10000);
+    // Background refresh every 10s without flashing the loader
+    const intervalId = setInterval(() => {
+      fetchQueue(false);
+      fetchStats();
+    }, 10000);
     return () => clearInterval(intervalId);
   }, []);
 
