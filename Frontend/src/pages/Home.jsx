@@ -38,7 +38,7 @@ const Home = () => {
             Trust &amp; Safety · Content Moderation Platform
           </p>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4">
-            Keep your community {" "}
+            Build a trusted space where conversations stay {" "}
             <TypeAnimation
             sequence = {[
             'safe',
@@ -53,7 +53,6 @@ const Home = () => {
             className="text-blue-400"
             repeat={Infinity}
             />
-          {" "}without slowing it down.
           </h1>
           <p className="max-w-2xl mx-auto text-base md:text-lg text-slate-200 mb-8">
             CensorPro combines real-time AI with expert review workflows so you can detect toxic,
