@@ -14,6 +14,15 @@ const AdminDashboard = () => {
   const [viewed, setViewed] = useState({});
   const [stats, setStats] = useState({ total: 0, pending: 0, under_review: 0, done: 0, approved: 0, rejected: 0 });
 
+    // Build a safe image URL from whatever is stored in the database.
+  // Handles "/uploads/..", "uploads/.." and already-absolute URLs.
+  const buildImageUrl = (rawPath) => {
+    if (!rawPath) return null;
+    if (rawPath.startsWith('http://') || rawPath.startsWith('https://')) return rawPath;
+    const normalizedPath = rawPath.startsWith('/') ? rawPath : `/${rawPath}`;
+    return `${API_BASE_URL}${normalizedPath}`;
+  };
+  
   const getToken = () => {
     try { return localStorage.getItem('token'); } catch { return null; }
   };
@@ -135,7 +144,7 @@ const AdminDashboard = () => {
               fetchQueue();
               fetchStats();
             }}
-            className="bg-blue-500 text-slate-950 px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-400"
+            className="bg-blue-500 text-slate-950 px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-400 cursor-pointer"
           >
             Refresh
           </button>
@@ -170,11 +179,11 @@ const AdminDashboard = () => {
                     <div className="flex items-center justify-between bg-slate-950/60 border border-slate-700 p-3 rounded-lg">
                       <div className="text-xs text-slate-100">Image content</div>
                       <button
-                        onClick={() => {
-                          setPreviewUrl(`${API_BASE_URL}${item.image_path}`);
+                       onClick={() => {
+                          setPreviewUrl(buildImageUrl(item.image_path));
                           setViewed(prev => ({ ...prev, [itemId(item)]: true }));
                         }}
-                        className="bg-blue-500 text-slate-950 px-3 py-1 rounded-md text-xs font-medium hover:bg-blue-400"
+                        className="bg-blue-500 text-slate-950 px-3 py-1 rounded-md text-xs font-medium hover:bg-blue-400 cursor-pointer"
                       >
                         View
                       </button>
@@ -203,7 +212,7 @@ const AdminDashboard = () => {
                   </select>
                   <button
                     onClick={() => submitReview(itemId(item))}
-                    className="bg-emerald-500 text-slate-950 px-4 py-2 rounded-md text-sm font-medium hover:bg-emerald-400"
+                    className="bg-emerald-500 text-slate-950 px-4 py-2 rounded-md text-sm font-medium hover:bg-emerald-400 cursor-pointer"
                   >
                     Send response
                   </button>
@@ -219,11 +228,18 @@ const AdminDashboard = () => {
           <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl max-w-4xl w-[90%]">
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-slate-50 font-semibold">Preview</h3>
-              <button onClick={() => setPreviewUrl(null)} className="text-slate-300 hover:text-blue-300 text-sm">
+              <button onClick={() => setPreviewUrl(null)} className="text-slate-300 hover:text-blue-300 text-sm cursor-pointer">
                 Close
               </button>
             </div>
-            <img src={previewUrl} alt="preview" className="w-full max-h-[80vh] object-contain rounded-lg border border-slate-800" />
+            <img
+              src={previewUrl}
+              alt="preview"
+              className="w-full max-h-[80vh] object-contain rounded-lg border border-slate-800"
+              onError={(e) => {
+                e.currentTarget.alt = 'Image not found on server';
+              }}
+            />
           </div>
         </div>
       )}

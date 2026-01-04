@@ -29,6 +29,14 @@ const Dashboard = () => {
 
   const [userName, setUserName] = useState('');
 
+  // Build a safe image URL from stored DB values.
+  const buildImageUrl = (rawPath) => {
+    if (!rawPath) return null;
+    if (rawPath.startsWith('http://') || rawPath.startsWith('https://')) return rawPath;
+    const normalizedPath = rawPath.startsWith('/') ? rawPath : `/${rawPath}`;
+    return `${API_BASE_URL}${normalizedPath}`;
+  };
+
   const getAuthToken = () => {
     try {
       return localStorage.getItem('token');
@@ -714,7 +722,7 @@ const Dashboard = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {myContent.map((item) => {
                   const isImage = !!item.image_path;
-                  const imageUrl = isImage ? `${API_BASE_URL}${item.image_path}` : null;
+                  const imageUrl = isImage ? buildImageUrl(item.image_path) : null;
                   // prefer explicit decision from backend; otherwise derive from status
                   const rawDecision = (item.decision && String(item.decision)) || (item.status && String(item.status)) || 'Pending';
                   const normalizedDecision = (() => {
@@ -777,6 +785,9 @@ const Dashboard = () => {
                             src={imageUrl}
                             alt="uploaded"
                             className="w-full h-40 object-cover rounded-lg border border-slate-800"
+                            onError={(e) => {
+                              e.currentTarget.alt = 'Image not found on server';
+                            }}
                           />
                         ) : (
                           <p className="text-xs text-slate-100 whitespace-pre-wrap break-words bg-slate-900/80 rounded-lg p-3 border border-slate-800">
